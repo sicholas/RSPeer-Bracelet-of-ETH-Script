@@ -27,13 +27,13 @@ public class Main extends Script implements RenderListener {
     private static final DecimalFormat formatter = new DecimalFormat("#,###.##");
     private final String UNCHARGED_BRACELET_NAME = "Bracelet of ethereum (uncharged)";
     private final String REVENANT_ETHER_NAME = "Revenant ether";
+    private final int BRACELET_OF_ETHERENUM_UNCHARGED_ID = 21817;
     private boolean restock = false;
     private long startTime;
     private int alchs = 0;
     private String status;
     private int startMagicXP, startMagicLvl = 0;
     private int gpEz = 0;
-    private int BRACELET_OF_ETHERENUM_UNCHARGED_ID;
 
     private State getCurrentState() {
         if (!restock) {
@@ -73,9 +73,9 @@ public class Main extends Script implements RenderListener {
 
                 if (!GrandExchange.isOpen() && GrandExchange.open()) {
                     Time.sleepUntil(GrandExchange::isOpen, 10000);
+                    return Random.nextInt(300, 600);
                 }
 
-                BRACELET_OF_ETHERENUM_UNCHARGED_ID = 21817;
                 final RSGrandExchangeOffer offer = GrandExchange.getFirst(o -> o.getItemId() == BRACELET_OF_ETHERENUM_UNCHARGED_ID);
                 if (offer != null) {
                     if (offer.getProgress() == RSGrandExchangeOffer.Progress.FINISHED) {
