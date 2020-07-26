@@ -1,5 +1,3 @@
-package com.sicholas;
-
 import org.rspeer.runetek.adapter.component.Item;
 import org.rspeer.runetek.api.commons.Time;
 import org.rspeer.runetek.api.commons.math.Random;
@@ -27,6 +25,7 @@ public class Main extends Script implements RenderListener {
     private String status;
     public int startMagicXP, startMagicLvl = 0;
     public int gpEz = 0;
+    DecimalFormat formatter = new DecimalFormat("#,###.##");
     @Override
     public void notify(RenderEvent renderEvent) {
         int nextLvlXp = Skills.getExperienceToNextLevel(Skill.MAGIC);
@@ -46,7 +45,6 @@ public class Main extends Script implements RenderListener {
 
         int x = 25;
         int y = 250;
-        DecimalFormat formatter = new DecimalFormat("#,###.##");
         FontMetrics metrics = g2.getFontMetrics();
 
 //        double thieveRate = ((double) steal / (double) (steal + fail)) * 100;
@@ -111,13 +109,6 @@ public class Main extends Script implements RenderListener {
             g2.fillRect(9, 459, 91, 15);
         }
 
-
-        //Hide username
-        if (Players.getLocal() != null) {
-            Color tanColor = new Color(204, 187, 154);
-            g2.setColor(tanColor);
-            g2.fillRect(9, 459, 91, 15);
-        }
     }
 
     private double getPerHour(double value) {
@@ -150,81 +141,86 @@ public class Main extends Script implements RenderListener {
     public int loop() {
         if(Dialog.isOpen()){
             Dialog.getContinue();
+            return Random.high(150, 300);
         }
         switch(getCurrentState()) {
 
             case resupply:
                 status = "Resupplying";
-                Bank.close();
-                Time.sleepUntil(()->Bank.isClosed(), 10000);
-                GrandExchange.open();
-//                getOSBuddyPrice
-                GrandExchange.createOffer(RSGrandExchangeOffer.Type.BUY);
-
-                GrandExchangeSetup.setItem(21817);
-
-                try {
-                    GrandExchangeSetup.setPrice(ExPriceCheck.getOSBuddyPrice(21817) + 400);
-                } catch (IOException e) {
-                    e.printStackTrace();
+                if (Bank.isOpen() && Bank.close()) {
+                    Time.sleepUntil(Bank::isClosed, 5000);
+                    return Random.nextInt(150, 300);
                 }
-                try {
-                    GrandExchangeSetup.setQuantity((int)Math.floor(Inventory.getFirst("Coins").getStackSize() / (ExPriceCheck.getOSBuddyPrice(21817) + 400)));
-                } catch (IOException e) {
-                    e.printStackTrace();
+                if (!GrandExchange.isOpen() && GrandExchange.open()) {
+                    Time.sleepUntil(GrandExchange::isOpen, 10000);
+                    GrandExchange.createOffer(RSGrandExchangeOffer.Type.BUY);
+
+                    GrandExchangeSetup.setItem(21817);
+
+                    try {
+                        GrandExchangeSetup.setPrice(com.sicholas.ExPriceCheck.getOSBuddyPrice(21817) + 400);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    try {
+                        GrandExchangeSetup.setQuantity((int)Math.floor(Inventory.getFirst("Coins").getStackSize() / (com.sicholas.ExPriceCheck.getOSBuddyPrice(21817) + 400)));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    GrandExchangeSetup.confirm();
+
+                    Time.sleep(3000);
+                    GrandExchange.collectAll(true);
+                    restock = false;
+
+                    return Random.nextInt(150, 300);
                 }
-//                GrandExchangeSetup.setQuantity(30);
-                GrandExchangeSetup.confirm();
-//                Time.sleep(3000);
-//                GrandExchange.createOffer(RSGrandExchangeOffer.Type.BUY);
-//                GrandExchangeSetup.setItem(21820);
-//                try {
-//                    GrandExchangeSetup.setPrice(ExPriceCheck.getOSBuddyPrice(21820) + 20);
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-//                GrandExchangeSetup.setQuantity(30);
-//                GrandExchangeSetup.confirm();
-                Time.sleep(2000);
-//                Time.sleepUntil(()-> GrandExchange.collectAll(), 10000);
-                Time.sleep(1000);
-                GrandExchange.collectAll(true);
-                restock = false;
-//                break;
+
             case alch:
                 status = "Commencing alching";
                 if(Inventory.contains("Bracelet of ethereum")){
-                    Item[] braces = Inventory.getItems(item -> item.getName().equalsIgnoreCase("Bracelet of ethereum"));
-
-
-                    Tabs.open(Tab.MAGIC);
-                    Time.sleepUntil(() -> Tabs.isOpen(Tab.MAGIC), 2000);
-                    Magic.cast(Spell.Modern.HIGH_LEVEL_ALCHEMY);
-                    Inventory.getFirst("Bracelet of ethereum").interact("Cast");
-                    Time.sleepUntil(() -> !Inventory.contains("Bracelet of ethereum"), 2000);
-                    Time.sleep(400);
-                    gpEz += 750;
-                    alchs++;
+                    Item bracelet = Inventory.getFirst("Bracelet of ethereum");
+                    if(bracelet != null) {
+                        if(!Tabs.isOpen(Tab.MAGIC)) {
+                            Tabs.open(Tab.MAGIC);
+                            Time.sleepUntil(() -> Tabs.isOpen(Tab.MAGIC), 1000);
+                        }
+                        Magic.cast(Spell.Modern.HIGH_LEVEL_ALCHEMY);
+                        Inventory.getFirst("Bracelet of ethereum").interact("Cast");
+                        int count = Inventory.getCount();
+                        Time.sleepUntil(() -> count != Inventory.getCount(), 1000);                        Time.sleep(400);
+                        gpEz += 750;
+                        alchs++;
+                    }
 
                 }
-                else if(Inventory.contains("Bracelet of ethereum (uncharged)") && Inventory.contains("Revenant ether")){
-                    Inventory.getFirst("Revenant ether").interact("Use");
-                    Time.sleepUntil(() -> Inventory.isItemSelected(), 2000);
-                    Inventory.getFirst("Bracelet of ethereum (uncharged)").interact("Use");
-                    Time.sleepUntil(() -> Inventory.contains("Bracelet of ethereum"), 2000);
+                Item bracelet = Inventory.getFirst("Bracelet of ethereum (uncharged)");
+                Item ether = Inventory.getFirst("Revenant ether");
+                if(bracelet != null && ether != null){
+                    ether.interact("Use");
+                    Time.sleepUntil(Inventory::isItemSelected, 500);
+                    bracelet.interact("Use");
+                    Time.sleepUntil(() -> Inventory.contains("Bracelet of ethereum"), 1000);
                 }
                 else {
-                    Bank.open();
-                    Time.sleepUntil(() -> Bank.isOpen(), 30000);
-                    if ((Bank.contains("Bracelet of ethereum (uncharged)")) && Bank.contains("Revenant ether")) {
+                    if (!Bank.isOpen() && Bank.open()) {
+                        Time.sleepUntil(Bank::isOpen, 5000);
+                        return Random.nextInt(150, 300);
+                    }
+                    if(Inventory.contains("Bracelet of ethereum (uncharged)") ){
+                        Bank.withdraw("Revenant ether", 1);
+                        Time.sleepUntil(() -> Inventory.contains("Revenant ether"), 2000);
+                        Bank.close();
+                        Time.sleep(250);
+                        return Random.high(100, 200);
+                    }
+                    if((Bank.contains("Bracelet of ethereum (uncharged)")) && Bank.contains("Revenant ether")){
                         Bank.withdraw("Bracelet of ethereum (uncharged)", 1);
                         Time.sleepUntil(() -> Inventory.contains("Bracelet of ethereum (uncharged)"), 2000);
                         Bank.withdraw("Revenant ether", 1);
                         Time.sleepUntil(() -> Inventory.contains("Revenant ether"), 2000);
                         Bank.close();
                         Time.sleep(250);
-//                    Time.sleep(500);
-
                     }
                     else{
                         restock = true;
@@ -233,12 +229,7 @@ public class Main extends Script implements RenderListener {
 
                 break;
         }
-        return 0;
-    }
-
-    @Override
-    public void onStop() {
-
+        return Random.high(100, 150);
     }
 
     private String formatTime(final long ms) {
