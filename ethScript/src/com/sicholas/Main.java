@@ -52,8 +52,8 @@ public class Main extends Script implements RenderListener {
 
     @Override
     public int loop() {
-        if (Dialog.isOpen()) {
-            Dialog.getContinue();
+        if (Dialog.canContinue()) {
+            Dialog.processContinue();
             return Random.high(150, 300);
         }
 
@@ -62,7 +62,7 @@ public class Main extends Script implements RenderListener {
                 status = "Resupplying";
                 if (Bank.isOpen() && Bank.close()) {
                     Time.sleepUntil(Bank::isClosed, 5000);
-                    return Random.nextInt(150, 300);
+                    return Random.nextInt(50, 150);
                 }
 
                 final Item coins = Inventory.getFirst("Coins");
@@ -73,7 +73,7 @@ public class Main extends Script implements RenderListener {
 
                 if (!GrandExchange.isOpen() && GrandExchange.open()) {
                     Time.sleepUntil(GrandExchange::isOpen, 10000);
-                    return Random.nextInt(300, 600);
+                    return Random.nextInt(50, 150);
                 }
 
                 final RSGrandExchangeOffer offer = GrandExchange.getFirst(o -> o.getItemId() == BRACELET_OF_ETHERENUM_UNCHARGED_ID);
@@ -83,7 +83,7 @@ public class Main extends Script implements RenderListener {
                         restock = false;
                         return Random.nextInt(300, 600);
                     }
-                    return Random.nextInt(1200, 1800);
+                    return Random.nextInt(300, 600);
                 }
                 if (!GrandExchange.getView().equals(GrandExchange.View.BUY_OFFER) &&
                         GrandExchange.createOffer(RSGrandExchangeOffer.Type.BUY)) {
@@ -94,91 +94,106 @@ public class Main extends Script implements RenderListener {
                 final Item item = GrandExchangeSetup.getItem();
                 if (item == null || item.getId() != BRACELET_OF_ETHERENUM_UNCHARGED_ID) {
                     GrandExchangeSetup.setItem(BRACELET_OF_ETHERENUM_UNCHARGED_ID);
-                    return Random.nextInt(600, 1200);
+                    return Random.nextInt(300, 600);
                 }
 
 
                 try {
-                    final int price = ExPriceCheck.getOSBuddyPrice(BRACELET_OF_ETHERENUM_UNCHARGED_ID) + 400;
+                    final int price = com.sicholas.ExPriceCheck.getOSBuddyPrice(BRACELET_OF_ETHERENUM_UNCHARGED_ID) + 400;
                     if (GrandExchangeSetup.getPricePerItem() != price) {
                         GrandExchangeSetup.setPrice(price);
                         return Random.nextInt(400, 800);
                     }
-                    if (GrandExchangeSetup.getQuantity() <= 0) {
-
-                        GrandExchangeSetup.setQuantity((int) Math.floor((double) coins.getStackSize() / price));
+                    final int quantity = (int) Math.floor((double) coins.getStackSize() / price);
+                    if (GrandExchangeSetup.getQuantity() != quantity) {
+                        GrandExchangeSetup.setQuantity(quantity);
                         return Random.nextInt(400, 800);
                     }
 
-                    GrandExchangeSetup.confirm();
-                    return Random.nextInt(2000, 4000);
+                    if (GrandExchangeSetup.confirm()) {
+                        Time.sleepUntil(() -> GrandExchange.getView() == GrandExchange.View.OVERVIEW, 1200);
+                        return Random.nextInt(50, 150);
+                    }
+                    return Random.nextInt(200, 300);
                 } catch (IOException e) {
                     Log.fine("Cannot fetch item price");
                 }
 
-                return Random.nextInt(150, 300);
+                return Random.nextInt(50, 150);
             case ALCH:
                 status = "Commencing alching";
                 Item bracelet = Inventory.getFirst("Bracelet of ethereum");
                 if (bracelet != null) {
-                    if (!Tabs.isOpen(Tab.MAGIC)) {
-                        Tabs.open(Tab.MAGIC);
-                        Time.sleepUntil(() -> Tabs.isOpen(Tab.MAGIC), 1000);
-                    }
-
-                    if (!Magic.isSpellSelected() && Magic.cast(Spell.Modern.HIGH_LEVEL_ALCHEMY)) {
-                        Time.sleepUntil(Magic::isSpellSelected, 1800);
-                        return Random.nextInt(600, 1200);
+                    if (!Magic.isSpellSelected()) {
+                        if (!Tabs.isOpen(Tab.MAGIC)) {
+                            Tabs.open(Tab.MAGIC);
+                            Time.sleepUntil(() -> Tabs.isOpen(Tab.MAGIC), 1000);
+                        }
+                        if (Magic.cast(Spell.Modern.HIGH_LEVEL_ALCHEMY)) {
+                            Time.sleepUntil(Magic::isSpellSelected, 600);
+                            return Random.nextInt(50, 100);
+                        }
+                        return Random.nextInt(100, 200);
                     }
 
                     if (bracelet.interact("Cast")) {
                         int count = Inventory.getCount();
-                        Time.sleepUntil(() -> count != Inventory.getCount(), 1000);
-                        Time.sleep(400);
+                        Time.sleepUntil(() -> count != Inventory.getCount(), 1200);
                         gpEz += 750;
                         alchs++;
+                        return Random.nextInt(50, 150);
                     }
-                    return Random.nextInt(300, 600);
+                    return Random.nextInt(50, 150);
                 }
-
                 Item unchargedBracelet = Inventory.getFirst(UNCHARGED_BRACELET_NAME);
                 Item ether = Inventory.getFirst(REVENANT_ETHER_NAME);
                 if (unchargedBracelet != null && ether != null) {
                     if (Bank.isOpen() && Bank.close()) {
-                        Time.sleepUntil(Bank::isClosed, 1800);
-                        return Random.nextInt(100, 150);
+                        Time.sleepUntil(Bank::isClosed, 300);
+                        return Random.nextInt(50, 150);
                     }
 
+//                    if (Inventory.use(i -> i.getName().equals(UNCHARGED_BRACELET_NAME), ether)) {
+//                        Time.sleepUntil(() -> Inventory.contains("Bracelet of ethereum"), 1000);
+//                    }
+
                     if (!Inventory.isItemSelected() && ether.interact("Use")) {
-                        Time.sleepUntil(Inventory::isItemSelected, 500);
-                    } else if (bracelet.interact("Use")) {
-                        Time.sleepUntil(() -> Inventory.contains("Bracelet of ethereum"), 1000);
+                        Time.sleepUntil(Inventory::isItemSelected, 400);
                     }
-                    return Random.nextInt(300, 600);
+
+                    if (unchargedBracelet.interact("Use")) {
+                        Time.sleepUntil(() -> Inventory.contains("Bracelet of ethereum"), 400);
+                    }
+                    return Random.nextInt(50, 150);
                 }
+
 
                 if (!Bank.isOpen() && Bank.open()) {
                     Time.sleepUntil(Bank::isOpen, 5000);
-                    return Random.nextInt(150, 300);
+                    return Random.nextInt(50, 150);
                 }
 
-                if (Inventory.contains(UNCHARGED_BRACELET_NAME)) {
+                if (Inventory.contains(UNCHARGED_BRACELET_NAME) && !Inventory.contains(REVENANT_ETHER_NAME)) {
                     if (Bank.withdraw(REVENANT_ETHER_NAME, 1)) {
                         Time.sleepUntil(() -> Inventory.contains(REVENANT_ETHER_NAME), 2000);
+                        Bank.close();
                     }
-                    return Random.high(100, 200);
+                    return Random.high(50, 150);
                 }
 
                 if (Bank.contains(UNCHARGED_BRACELET_NAME) && Bank.contains(REVENANT_ETHER_NAME)) {
                     if (!Inventory.contains(UNCHARGED_BRACELET_NAME) &&
                             Bank.withdraw(UNCHARGED_BRACELET_NAME, 1)) {
                         Time.sleepUntil(() -> Inventory.contains(UNCHARGED_BRACELET_NAME), 2000);
-                        return Random.nextInt(100, 150);
+                        return Random.nextInt(10, 80);
                     }
+
                     if (!Inventory.contains(REVENANT_ETHER_NAME)) {
                         if (Bank.withdraw(REVENANT_ETHER_NAME, 1)) {
                             Time.sleepUntil(() -> Inventory.contains(REVENANT_ETHER_NAME), 2000);
+                            Bank.close();
                         }
+                        return Random.nextInt(10, 80);
                     }
                 } else {
                     restock = true;
